@@ -22,7 +22,7 @@ class SensorSHT25:
 
         # Read data back 2 bytes
         # Temp MSB, Temp LSB
-        data = i2c.readBytes(self.address, 0x40, 2)
+        data = self.i2c.readBytes(self.address, 0x40, 2)
 
         # Convert the data
         temp = data[0] * 256 + data[1]
@@ -32,19 +32,17 @@ class SensorSHT25:
         # Send humidity measurement command
         # 0xF5(245)   NO HOLD master
         data = [0xF5]
-        i2c.write(self.address, data)
+        self.i2c.write(self.address, data)
 
         time.sleep(0.5)
 
         # Read data back, 2 bytes
         # Humidity MSB, Humidity LSB
-        data = i2c.readBytes(self.address, 0x40, 2)
+        data = self.i2c.readBytes(self.address, 0x40, 2)
 
         # Convert the data
         humidity = data[0] * 256 + data[1]
         humidity = -6 + ((humidity * 125.0) / 65536.0)
-
-        humidity = 100 * (data[3] * 256 + data[4]) / 65535.0
 
         return cTemp, fTemp, humidity
 
@@ -72,7 +70,7 @@ class SensorSHT31:
         # SHT31 address, 0x44(68)
         # Read data back from 0x00(00), 6 bytes
         # Temp MSB, Temp LSB, Temp CRC, Humididty MSB, Humidity LSB, Humidity CRC
-        data = i2c.readBytes(self.address, 0x00, 6)
+        data = self.i2c.readBytes(self.address, 0x00, 6)
 
         # Convert the data
         temp = data[0] * 256 + data[1]
@@ -87,7 +85,7 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('sensor', choices=['sht25', 'sht31'])
     parser.add_argument('--device', type=int, default=0)
-    args = parse.parse_args()
+    args = parser.parse_args()
 
     if args.sensor == 'sht25':
         sensor = SensorSHT25()
