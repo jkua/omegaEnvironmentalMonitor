@@ -1,69 +1,81 @@
-import paho.mqtt.client as mqtt
-import ssl
-from readTemp import Sensor
-import json
+from OmegaExpansion import onionI2C
 import time
 
-# The callback for when the client receives a CONNACK response from the server.
-def on_connect(client, userdata, flags, rc):
-    print("Connected with result code "+str(rc))
+class SensorSHT25:
+    def __init__(self, i2c=None):
+        # SHT25 address, 0x40(64)
+        self.address = 0x40
+        
+        if i2c is not None:
+            self.i2c = i2c
+        else:
+            self.i2c = onionI2C.OnionI2C()
 
-    # Subscribing in on_connect() means that if we lose the connection and
-    # reconnect then subscriptions will be renewed.
-    client.subscribe("$SYS/#")
+    def read(self):
+        # Send temperature measurement command
+        # 0xF3(243)   NO HOLD master
+        data = [0xF3]
+        self.i2c.write(self.address, data)
+        time.sleep(0.5)
 
-#The callback for when this client publishes to the server.
-def on_publish(client, userdata, mid):
-    print("Message published")
+        # Read data back 2 bytes
+        # Temp MSB, Temp LSB
+        data = i2c.readBytes(self.address, 0x40, 2)
 
-# The callback for when a PUBLISH message is received from the server.
-def on_message(client, userdata, msg):
-    print(msg.topic+" "+str(msg.payload))
+        # Convert the data
+        temp = data[0] * 256 + data[1]
+        cTemp= -46.85 + ((temp * 175.72) / 65536.0)
+        fTemp = cTemp * 1.8 + 32
 
-def buildPayload(temp, humidity):
-    data = {'timestamp': time.time(),
-            'temperature': cTemp,
-            'humidity': humidity
-           }
-    jsonString = json.dumps(data)
-    return jsonString
+        # Send humidity measurement command
+        # 0xF5(245)   NO HOLD master
+        data = [0xF5]
+        i2c.write(self.address, data)
 
-if __name__=='__main__':
-    import os.path
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--poll', type=float, default=15.)
-    parser.add_argument('--host', default='a2kr815ji4hl5t.iot.us-west-2.amazonaws.com')
-    parser.add_argument('--port', type=int, default=8883)
-    parser.add_argument('--topic', default='temp-humidity/Omega-F4E1/top')
-    parser.add_argument('--cafile', default='~/certs/rootCA.pem')
-    parser.add_argument('--cert', default='~/certs/certificate.pem')
-    parser.add_argument('--key', default='~/certs/private.key')
-    args = parser.parse_args()
+        time.sleep(0.5)
 
-    args.cafile = os.path.expanduser(args.cafile)    
-    args.cert = os.path.expanduser(args.cert)    
-    args.key = os.path.expanduser(args.key)    
+        # Read data back, 2 bytes
+        # Humidity MSB, Humidity LSB
+        data = i2c.readBytes(self.address, 0x40, 2)
 
-    sensor = Sensor()
+        # Convert the data
+        humidity = data[0] * 256 + data[1]
+        humidity = -6 + ((humidity * 125.0) / 65536.0)
 
-    client = mqtt.Client()
-    client.on_connect = on_connect
-    client.on_publish = on_publish
-    client.on_message = on_message
+        humidity = 100 * (data[3] * 256 + data[4]) / 65535.0
 
-    client.tls_set(ca_certs=args.cafile, certfile=args.cert, keyfile=args.key, cert_reqs=ssl.CERT_REQUIRED, tls_version=ssl.PROTOCOL_TLSv1_2, ciphers=None)
-    client.connect(args.host, args.port, keepalive=60)
+        return cTemp, fTemp, humidity
 
-    client.loop_start()
+class SensorSHT31:
+    def __init__(self, device=0, i2c=None):
+        # SHT31 address, 0x44(68) or 0x45(69)
+        self.address = 0x44
+        if device == 1:
+            self.address = self.address + 1
+        elif device not in [0, 1]:
+            raise('Device number must be 0 or 1!')
+        
+        if i2c is not None:
+            self.i2c = i2c
+        else:
+            self.i2c = onionI2C.OnionI2C()
 
-    while 1:
-        cTemp, fTemp, humidity = sensor.read()
-        print('[{}] {:5.2f} deg C, {:5.1f} deg F, {:4.1f} %RH'.format(time.ctime(), cTemp, fTemp, humidity))
-        payload = buildPayload(cTemp, humidity)
-        result, mid = client.publish(args.topic, payload, qos=1)
-        time.sleep(args.poll-0.5)
-    
-    client.loop_stop()
-    client.disconnect()
+    def read(self):
+        # Send measurement command, 0x2C(44)
+        # 0x06(06)    High repeatability measurement
+        data = [0x06]
+        self.i2c.writeBytes(self.address, 0x2c, data)
+        time.sleep(0.5)
 
+        # SHT31 address, 0x44(68)
+        # Read data back from 0x00(00), 6 bytes
+        # Temp MSB, Temp LSB, Temp CRC, Humididty MSB, Humidity LSB, Humidity CRC
+        data = i2c.readBytes(self.address, 0x00, 6)
+
+        # Convert the data
+        temp = data[0] * 256 + data[1]
+        cTemp = -45 + (175 * temp / 65535.0)
+        fTemp = -49 + (315 * temp / 65535.0)
+        humidity = 100 * (data[3] * 256 + data[4]) / 65535.0
+
+        return cTemp, fTemp, humidity
