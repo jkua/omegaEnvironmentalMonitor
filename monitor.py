@@ -43,11 +43,13 @@ if __name__=='__main__':
 
     args.cafile = os.path.expanduser(args.cafile)    
     args.cert = os.path.expanduser(args.cert)    
-    args.key = os.path.expanduser(args.key)    
+    args.key = os.path.expanduser(args.key)
 
-    sensors = {'top': SensorSHT31(device=0),
-               'bottom': SensorSHT31(device=1),
-               'ambient': SensorSHT25()
+    i2c = onionI2C.OnionI2C()
+
+    sensors = {'top': SensorSHT31(device=0, i2c=i2c),
+               'bottom': SensorSHT31(device=1, i2c=i2c),
+               'ambient': SensorSHT25(i2c=i2c)
               }
     
     client = mqtt.Client()

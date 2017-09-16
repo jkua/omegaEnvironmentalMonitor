@@ -2,9 +2,11 @@ from OmegaExpansion import onionI2C
 import time
 
 class SensorSHT25:
-    def __init__(self, i2c=None):
+    def __init__(self, device=0, i2c=None):
         # SHT25 address, 0x40(64)
         self.address = 0x40
+        if device != 0:
+            raise Exception('Device number must be 0!')
         
         if i2c is not None:
             self.i2c = i2c
@@ -53,7 +55,7 @@ class SensorSHT31:
         if device == 1:
             self.address = self.address + 1
         elif device not in [0, 1]:
-            raise('Device number must be 0 or 1!')
+            raise Exception('Device number must be 0 or 1!')
         
         if i2c is not None:
             self.i2c = i2c
@@ -79,3 +81,18 @@ class SensorSHT31:
         humidity = 100 * (data[3] * 256 + data[4]) / 65535.0
 
         return cTemp, fTemp, humidity
+
+if __name__=='__main__':
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('sensor', choices=['sht25', 'sht31'])
+    parser.add_argument('--device', type=int, default=0)
+    args = parse.parse_args()
+
+    if args.sensor == 'sht25':
+        sensor = SensorSHT25()
+    elif args.sensor == 'sht31':
+        sensor = SensorSHT31(device=args.device)
+
+    cTemp, fTemp, humidity = sensor.read()
+    print('[{}] {}, Device {} - {:5.2f} deg C, {:5.1f} deg F, {:4.1f} %RH'.format(time.ctime(), args.sensor.upper(), args.device, cTemp, fTemp, humidity))
