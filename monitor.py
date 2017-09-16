@@ -1,12 +1,18 @@
 import paho.mqtt.client as mqtt
 import ssl
-from readTemp import SensorSHT31, SensorSHT25
 import json
 import time
+from OmegaExpansion import onionI2C
+from readTemp import SensorSHT31, SensorSHT25
+
+lastConnectStatus = None
 
 # The callback for when the client receives a CONNACK response from the server.
 def on_connect(client, userdata, flags, rc):
-    print("Connected with result code "+str(rc))
+    global lastConnectStatus
+    if rc != lastConnectStatus:
+        print("\n*** Connected with result code "+str(rc) + '\n')
+        lastConnectStatus = rc
 
     # Subscribing in on_connect() means that if we lose the connection and
     # reconnect then subscriptions will be renewed.
@@ -47,11 +53,13 @@ if __name__=='__main__':
 
     i2c = onionI2C.OnionI2C()
 
+    order = ['top', 'bottom', 'ambient']
     sensors = {'top': SensorSHT31(device=0, i2c=i2c),
                'bottom': SensorSHT31(device=1, i2c=i2c),
                'ambient': SensorSHT25(i2c=i2c)
               }
-    
+
+    lastConnectStatus = None    
     client = mqtt.Client()
     client.on_connect = on_connect
     client.on_publish = on_publish
@@ -63,16 +71,21 @@ if __name__=='__main__':
     client.loop_start()
 
     while 1:
-        startTime = time.time()
-        for key, sensor in sensors.iteritems():
-            cTemp, fTemp, humidity = sensor.read()
-            print('[{}] {} - {:5.2f} deg C, {:5.1f} deg F, {:4.1f} %RH'.format(time.ctime(), key.title(), cTemp, fTemp, humidity))
-            payload = buildPayload(cTemp, humidity)
-            fullTopic = '{}/{}'.format(args.topic, key)
-            result, mid = client.publish(fullTopic, payload, qos=1)
-        measurementTime = time.time() - startTime
-        time.sleep(max(args.poll-measurementTime, 0))
-    
+        try:
+            startTime = time.time()
+            print('----')
+            for key in order:
+                sensor = sensors[key]
+                cTemp, fTemp, humidity = sensor.read()
+                print('[{}] {} - {:5.2f} deg C, {:5.1f} deg F, {:4.1f} %RH'.format(time.ctime(), key.title(), cTemp, fTemp, humidity))
+                payload = buildPayload(cTemp, humidity)
+                fullTopic = '{}/{}'.format(args.topic, key)
+                result, mid = client.publish(fullTopic, payload, qos=1)
+            measurementTime = time.time() - startTime
+            time.sleep(max(args.poll-measurementTime, 0))
+        except KeyboardInterrupt:
+            pass
+
     client.loop_stop()
     client.disconnect()
 
