@@ -75,16 +75,19 @@ if __name__=='__main__':
             startTime = time.time()
             print('----')
             for key in order:
-                sensor = sensors[key]
-                cTemp, fTemp, humidity = sensor.read()
-                print('[{}] {} - {:5.2f} deg C, {:5.1f} deg F, {:4.1f} %RH'.format(time.ctime(), key.title(), cTemp, fTemp, humidity))
-                payload = buildPayload(cTemp, humidity)
-                fullTopic = '{}/{}'.format(args.topic, key)
-                result, mid = client.publish(fullTopic, payload, qos=1)
+                try:
+                    sensor = sensors[key]
+                    cTemp, fTemp, humidity = sensor.read()
+                    print('[{}] {} - {:5.2f} deg C, {:5.1f} deg F, {:4.1f} %RH'.format(time.ctime(), key.title(), cTemp, fTemp, humidity))
+                    payload = buildPayload(cTemp, humidity)
+                    fullTopic = '{}/{}'.format(args.topic, key)
+                    result, mid = client.publish(fullTopic, payload, qos=1)
+                except IOError:
+                    print('\n*** Failed to get data for {}, device {}!')
             measurementTime = time.time() - startTime
             time.sleep(max(args.poll-measurementTime, 0))
         except KeyboardInterrupt:
-            pass
+            break
 
     client.loop_stop()
     client.disconnect()
