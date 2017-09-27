@@ -5,40 +5,92 @@ import time
 from OmegaExpansion import onionI2C
 from readTemp import SensorSHT31, SensorSHT25
 
-lastConnectStatus = None
 
-# The callback for when the client receives a CONNACK response from the server.
-def on_connect(client, userdata, flags, rc):
-    global lastConnectStatus
-    if rc != lastConnectStatus:
-        print("\n*** Connected with result code "+str(rc) + '\n')
-        lastConnectStatus = rc
+class SensorPublisher(object):
+    def __init__(self, sensors, order=None):
+        self.sensors = sensors
+        self.order = order
+        if order is None:
+            self.order = self.sensors.keys()
+        else:
+            self.order = order
 
-    # Subscribing in on_connect() means that if we lose the connection and
-    # reconnect then subscriptions will be renewed.
-    client.subscribe("$SYS/#")
+        self.client = mqtt.Client()
 
-#The callback for when this client publishes to the server.
-def on_publish(client, userdata, mid):
-    print("Message published")
+        # userdata contains the last connection status
+        self.user_data_set(None)
 
-# The callback for when a PUBLISH message is received from the server.
-def on_message(client, userdata, msg):
-    print(msg.topic+" "+str(msg.payload))
+        self.client.on_connect = self.on_connect
+        self.client.on_publish = self.on_publish
+        self.client.on_message = self.on_message
 
-def buildPayload(temp, humidity):
-    data = {'timestamp': time.time(),
-            'temperature': cTemp,
-            'humidity': humidity
-           }
-    jsonString = json.dumps(data)
-    return jsonString
+    def connect(self, host, port, caFile, certFile, keyFile):
+        self.client.tls_set(ca_certs=caFile, certfile=certFile, keyfile=keyFile, cert_reqs=ssl.CERT_REQUIRED, tls_version=ssl.PROTOCOL_TLSv1_2, ciphers=None)
+        self.client.connect(host, port, keepalive=60)
+
+    def disconnect(self):
+        self.client.disconnect()
+
+    def start(self, pollInterval):
+        self.client.loop_start()
+
+        while 1:
+            try:
+                startTime = time.time()
+                print('----')
+                for key in self.order:
+                    try:
+                        sensor = self.sensors[key]
+                        cTemp, fTemp, humidity = sensor.read()
+                        print('[{}] {} - {:5.2f} deg C, {:5.1f} deg F, {:4.1f} %RH'.format(time.ctime(), key.title(), cTemp, fTemp, humidity))
+                        payload = self.buildPayload(cTemp, humidity)
+                        fullTopic = '{}/{}'.format(args.topic, key)
+                        result, mid = self.client.publish(fullTopic, payload, qos=1)
+                    except IOError:
+                        print('\n*** Failed to get data for {}, device {}!')
+                measurementTime = time.time() - startTime
+                time.sleep(max(pollInterval-measurementTime, 0))
+            except KeyboardInterrupt:
+                break
+
+        self.client.loop_stop()
+
+    def buildPayload(temp, humidity):
+        data = {'timestamp': time.time(),
+                'temperature': cTemp,
+                'humidity': humidity
+               }
+        jsonString = json.dumps(data)
+        return jsonString
+
+    # The callback for when the client receives a CONNACK response from the server.
+    @staticmethod
+    def on_connect(client, userdata, flags, rc):
+        # userdata contains the last connection status
+        if rc != userdata:
+            print("\n*** Connected with result code "+str(rc) + '\n')
+            client.user_data_set(rc)
+
+        # Subscribing in on_connect() means that if we lose the connection and
+        # reconnect then subscriptions will be renewed.
+        client.subscribe("$SYS/#")
+
+    # The callback for when this client publishes to the server.
+    @staticmethod
+    def on_publish(client, userdata, mid):
+        print("Message published")
+
+    # The callback for when a PUBLISH message is received from the server.
+    @staticmethod
+    def on_message(client, userdata, msg):
+        print(msg.topic+" "+str(msg.payload))
+
 
 if __name__=='__main__':
     import os.path
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--poll', type=float, default=15.)
+    parser.add_argument('--poll', type=float, default=15., help='Polling interval in seconds')
     parser.add_argument('--host', default='a2kr815ji4hl5t.iot.us-west-2.amazonaws.com')
     parser.add_argument('--port', type=int, default=8883)
     parser.add_argument('--topic', default='temp-humidity/Omega-F4E1')
@@ -59,36 +111,8 @@ if __name__=='__main__':
                'ambient': SensorSHT25(i2c=i2c)
               }
 
-    lastConnectStatus = None    
-    client = mqtt.Client()
-    client.on_connect = on_connect
-    client.on_publish = on_publish
-    client.on_message = on_message
-
-    client.tls_set(ca_certs=args.cafile, certfile=args.cert, keyfile=args.key, cert_reqs=ssl.CERT_REQUIRED, tls_version=ssl.PROTOCOL_TLSv1_2, ciphers=None)
-    client.connect(args.host, args.port, keepalive=60)
-
-    client.loop_start()
-
-    while 1:
-        try:
-            startTime = time.time()
-            print('----')
-            for key in order:
-                try:
-                    sensor = sensors[key]
-                    cTemp, fTemp, humidity = sensor.read()
-                    print('[{}] {} - {:5.2f} deg C, {:5.1f} deg F, {:4.1f} %RH'.format(time.ctime(), key.title(), cTemp, fTemp, humidity))
-                    payload = buildPayload(cTemp, humidity)
-                    fullTopic = '{}/{}'.format(args.topic, key)
-                    result, mid = client.publish(fullTopic, payload, qos=1)
-                except IOError:
-                    print('\n*** Failed to get data for {}, device {}!')
-            measurementTime = time.time() - startTime
-            time.sleep(max(args.poll-measurementTime, 0))
-        except KeyboardInterrupt:
-            break
-
-    client.loop_stop()
-    client.disconnect()
+    publisher = SensorPublisher(sensors)
+    publisher.connect(args.host, args.port, args.cafile, args.cert, args.key)
+    publisher.start(args.poll)
+    publisher.disconnect()
 
