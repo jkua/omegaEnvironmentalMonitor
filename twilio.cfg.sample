@@ -1,0 +1,4 @@
+[twilio]
+account: <account id>
+token: <token>
+senderPhone: <sender phone number +1AAABBBCCCC>
