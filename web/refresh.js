@@ -74,6 +74,7 @@ function getData() {
         } 
         else {
             // placeholders for the data arrays
+            var compositeData = [];
             var temperatureValues = [];
             var humidityValues = [];
             var labelValues = [];
@@ -81,6 +82,7 @@ function getData() {
             // placeholders for the data read
             var temperatureRead = 0.0;
             var humidityRead = 0.0;
+            var timestamp = 0.0;
             var timeRead = "";
 
             // placeholders for the high/low markers
@@ -97,7 +99,9 @@ function getData() {
                 // read the values from the dynamodb JSON packet
                 temperatureRead = parseFloat(data['Items'][i]['payload']['M']['temperature']['N']);
                 humidityRead = parseFloat(data['Items'][i]['payload']['M']['humidity']['N']);
-                timeRead = new Date(parseFloat(data['Items'][i]['payload']['M']['timestamp']['N'])*1000);
+
+                timestamp = parseFloat(data['Items'][i]['payload']['M']['timestamp']['N']);
+                timeRead = new Date(timestamp * 1000.)
 
                 // check the read values for high/low watermarks
                 if (temperatureRead < temperatureLow) {
@@ -118,9 +122,21 @@ function getData() {
                 }
 
                 // append the read data to the data arrays
-                temperatureValues.push(temperatureRead);
-                humidityValues.push(humidityRead);
-                labelValues.push(timeRead);
+                compositeData.push([timestamp, temperatureRead, humidityRead]);
+            }
+
+            // Sort data by time
+            compositeData.sort(function(a, b){return a[0] - b[0]});
+
+            // Remove duplicates and break into separate arrays
+            var lastTimestamp = 0.0
+            for (var i = 0; i < compositeData.length; i++) {
+                if (i === 0 || ((i > 0) && (compositeData[i][0] !== lastTimestamp))) {
+                    labelValues.push(new Date(compositeData[i][0] * 1000.));
+                    temperatureValues.push(compositeData[i][1]);
+                    humidityValues.push(compositeData[i][2]);
+                    lastTimestamp = compositeData[i][0];
+                }
             }
 
             // set the chart object data and label arrays
