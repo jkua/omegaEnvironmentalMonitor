@@ -46,14 +46,17 @@ class Sensor(object):
     def checkThresholds(self):
         if self.thresholds is None:
             return True
-        if len(self.buffer) < thresholdSamples:
+        if len(self.buffer) < self.thresholdSamples:
             return True
 
         # See if any thresholds are violated
-        for i, threshold in thresholds:
+        sampleData = []
+        for i in range(self.thresholdSamples):
+            sampleData.append(self.buffer[-i])
+        for i, threshold in enumerate(self.thresholds):
             if threshold is not None:
                 overThreshold = True
-                for timestamp, data in self.buffer[-thresholdSamples:]:
+                for timestamp, data in sampleData:
                     if data[i] < threshold:
                         overThreshold = False
                 if overThreshold:
@@ -81,7 +84,7 @@ class Sensor(object):
 
 class SensorSHT25(Sensor):
     def __init__(self, device=0, i2c=None, thresholds=None, thresholdSamples=3):
-        super(SensorSHT25, self).__init__(thresholds, thresholdSamples)
+        super(SensorSHT25, self).__init__(thresholds=thresholds, thresholdSamples=thresholdSamples)
         # SHT25 address, 0x40(64)
         self.address = 0x40
         if device != 0:
@@ -92,7 +95,7 @@ class SensorSHT25(Sensor):
         else:
             self.i2c = onionI2C.OnionI2C()
 
-    def _getData(self):
+    def _readData(self):
         # Send temperature measurement command
         # 0xF3(243)   NO HOLD master
         data = [0xF3]
@@ -127,7 +130,7 @@ class SensorSHT25(Sensor):
 
 class SensorSHT31(Sensor):
     def __init__(self, device=0, i2c=None, thresholds=None, thresholdSamples=3):
-        super(SensorSHT31, self).__init__(thresholds, thresholdSamples)
+        super(SensorSHT31, self).__init__(thresholds=thresholds, thresholdSamples=thresholdSamples)
         # SHT31 address, 0x44(68) or 0x45(69)
         self.address = 0x44
         if device == 1:
@@ -140,7 +143,7 @@ class SensorSHT31(Sensor):
         else:
             self.i2c = onionI2C.OnionI2C()
 
-    def _getData(self):
+    def _readData(self):
         # Send measurement command, 0x2C(44)
         # 0x06(06)    High repeatability measurement
         data = [0x06]
