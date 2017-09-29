@@ -19,10 +19,10 @@ class Sensor(object):
     def stats(self):
         if len(self.buffer) == 0:
             return None, None, None
-        total = [0] * len(self.buffer[1])
-        minVals = [None] * len(self.buffer[1])
-        maxVals = [None] * len(self.buffer[1])
-        meanVals = [None] * len(self.buffer[1])
+        total = [0] * len(self.buffer[0][1])
+        minVals = [None] * len(self.buffer[0][1])
+        maxVals = [None] * len(self.buffer[0][1])
+        meanVals = [None] * len(self.buffer[0][1])
         for timestamp, data in self.buffer:
             for i, value in enumerate(data):
                 total[i] = total[i] + value

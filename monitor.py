@@ -4,6 +4,7 @@ import paho.mqtt.client as mqtt
 import ssl
 import json
 import time
+import sys
 from OmegaExpansion import onionI2C
 from readTemp import SensorSHT31, SensorSHT25
 
@@ -57,7 +58,7 @@ class SensorPublisher(object):
                         result, mid = self.client.publish(fullTopic, payload, qos=1)
                     except IOError:
                         print('\n*** Failed to get data for {}, device {}!')
-                if (time.localtime().hour == self.statsHour) and (self.lastStatsTime is None or ((time.time() - self.lastStatsTime) > 80000)):
+                if (time.localtime().tm_hour == self.statsHour) and (self.lastStatsTime is None or ((time.time() - self.lastStatsTime) > 80000)):
                     statsStrings = []
                     try:
                         for key in self.order:
@@ -65,10 +66,12 @@ class SensorPublisher(object):
                             meanVals, minVals, maxVals = sensor.stats()
                             statsStrings.append('{} - Mean: {:.1f} deg F, Min: {:.1f} deg F, Max: {:.1f} deg F'.format(key.title(), meanVals[1], minVals[1], maxVals[1]))
                         statsMessage = '\n'.join(statsStrings)
-                        self.sendStats(statsMessage)
+                        self.sendMessage(statsMessage)
+                        self.lastStatsTime = time.time()
                         print('Sent stats message!')
                     except:
                         print('*** Failed to send stats message!')
+                sys.stdout.flush()
                 measurementTime = time.time() - startTime
                 time.sleep(max(pollInterval-measurementTime, 0))
             except KeyboardInterrupt:
@@ -145,7 +148,7 @@ if __name__=='__main__':
 
     sender = TwilioSender(args.config)
 
-    publisher = SensorPublisher(sensors, alertSender=sender, statsHour=self.statsHour)
+    publisher = SensorPublisher(sensors, alertSender=sender, statsHour=args.statsHour)
     publisher.connect(args.host, args.port, args.cafile, args.cert, args.key)
     publisher.start(args.poll)
     publisher.disconnect()
