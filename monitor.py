@@ -9,7 +9,7 @@ from readTemp import SensorSHT31, SensorSHT25
 
 
 class SensorPublisher(object):
-    def __init__(self, sensors, order=None, alertSender=None):
+    def __init__(self, sensors, order=None, alertSender=None, statsHour=None):
         self.sensors = sensors
         self.order = order
         if order is None:
@@ -18,6 +18,8 @@ class SensorPublisher(object):
             self.order = order
 
         self.alertSender = alertSender
+        self.statsHour = statsHour
+        self.lastStatsTime = None
 
         self.client = mqtt.Client()
 
@@ -55,6 +57,18 @@ class SensorPublisher(object):
                         result, mid = self.client.publish(fullTopic, payload, qos=1)
                     except IOError:
                         print('\n*** Failed to get data for {}, device {}!')
+                if (time.localtime().hour == self.statsHour) and (self.lastStatsTime is None or ((time.time() - self.lastStatsTime) > 80000)):
+                    statsStrings = []
+                    try:
+                        for key in self.order:
+                            sensor = self.sensors[key]
+                            meanVals, minVals, maxVals = sensor.stats()
+                            statsStrings.append('{} - Mean: {:.1f} deg F, Min: {:.1f} deg F, Max: {:.1f} deg F'.format(key.title(), meanVals[1], minVals[1], maxVals[1]))
+                        statsMessage = '\n'.join(statsStrings)
+                        self.sendStats(statsMessage)
+                        print('Sent stats message!')
+                    except:
+                        print('*** Failed to send stats message!')
                 measurementTime = time.time() - startTime
                 time.sleep(max(pollInterval-measurementTime, 0))
             except KeyboardInterrupt:
@@ -71,9 +85,12 @@ class SensorPublisher(object):
         return jsonString
 
     def sendAlert(self, sensorName, timestamp, data):
+        alertMessage = 'WINE CELLAR ALERT! {} sensor reads {:.2f} deg C/{:.1f} deg F, {.1f} %RH!'.format(sensorName.title(), data[0], data[1], data[2])
+        self.sendMessage(alertMessage)
+
+    def sendMessage(self, message):
         if self.alertSender is not None:
-            alertMessage = 'WINE CELLAR ALERT! {} sensor reads {:.2f} deg C/{:.1f} deg F, {.1f} %RH!'.format(sensorName.title(), data[0], data[1], data[2])
-            self.alertSender.send(alertMessage)
+            self.alertSender.sendSmsMessage(message)
 
     # The callback for when the client receives a CONNACK response from the server.
     @staticmethod
@@ -99,6 +116,7 @@ class SensorPublisher(object):
 
 
 if __name__=='__main__':
+    from twilioSender import TwilioSender
     import os.path
     import argparse
     parser = argparse.ArgumentParser()
@@ -109,6 +127,8 @@ if __name__=='__main__':
     parser.add_argument('--cafile', default='~/certs/rootCA.pem')
     parser.add_argument('--cert', default='~/certs/certificate.pem')
     parser.add_argument('--key', default='~/certs/private.key')
+    parser.add_argument('--config', default='twilio.cfg', help='Twilio config file')
+    parser.add_argument('--statsHour', type=int, default=21, help='When to send daily stats')
     args = parser.parse_args()
 
     args.cafile = os.path.expanduser(args.cafile)    
@@ -123,7 +143,9 @@ if __name__=='__main__':
                'ambient': SensorSHT25(i2c=i2c, thresholds=[None, 80., None])
               }
 
-    publisher = SensorPublisher(sensors)
+    sender = TwilioSender(args.config)
+
+    publisher = SensorPublisher(sensors, alertSender=sender, statsHour=self.statsHour)
     publisher.connect(args.host, args.port, args.cafile, args.cert, args.key)
     publisher.start(args.poll)
     publisher.disconnect()

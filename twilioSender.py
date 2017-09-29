@@ -11,8 +11,12 @@ class TwilioSender(object):
         self.account = self.config.get('twilio', 'account')
         self.token = self.config.get('twilio', 'token')
         self.senderPhone = self.config.get('twilio', 'senderPhone')
+        self.receiverPhone = self.config.get('twilio', 'receiverPhone')
 
-    def sendSmsMessage(self, body, receiverPhone):
+    def sendSmsMessage(self, body, receiverPhone=None):
+        if receiverPhone is None:
+            receiverPhone = self.receiverPhone
+            
         command = ['curl', 'https://api.twilio.com/2010-04-01/Accounts/{}/Messages.json'.format(self.account),
                    '-X', 'POST',
                    '--data-urlencode', 'To={}'.format(receiverPhone),
