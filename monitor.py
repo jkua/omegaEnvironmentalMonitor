@@ -7,13 +7,15 @@ from readTemp import SensorSHT31, SensorSHT25
 
 
 class SensorPublisher(object):
-    def __init__(self, sensors, order=None):
+    def __init__(self, sensors, order=None, alertSender=None):
         self.sensors = sensors
         self.order = order
         if order is None:
             self.order = self.sensors.keys()
         else:
             self.order = order
+
+        self.alertSender = alertSender
 
         self.client = mqtt.Client()
 
@@ -41,8 +43,11 @@ class SensorPublisher(object):
                 for key in self.order:
                     try:
                         sensor = self.sensors[key]
-                        cTemp, fTemp, humidity = sensor.read()
-                        print('[{}] {} - {:5.2f} deg C, {:5.1f} deg F, {:4.1f} %RH'.format(time.ctime(), key.title(), cTemp, fTemp, humidity))
+                        timestamp, (cTemp, fTemp, humidity) = sensor.read()
+                        print('[{}] {} - {:5.2f} deg C, {:5.1f} deg F, {:4.1f} %RH'.format(time.ctime(timestamp), key.title(), cTemp, fTemp, humidity))
+                        if not sensor.checkThresholds():
+                            print('*** OVER THRESHOLD!!! ***')
+                            self.sendAlert(key, timestamp, (cTemp, fTemp, humidity))
                         payload = self.buildPayload(cTemp, humidity)
                         fullTopic = '{}/{}'.format(args.topic, key)
                         result, mid = self.client.publish(fullTopic, payload, qos=1)
@@ -62,6 +67,11 @@ class SensorPublisher(object):
                }
         jsonString = json.dumps(data)
         return jsonString
+
+    def sendAlert(self, sensorName, timestamp, data):
+        if self.alertSender is not None:
+            alertMessage = 'WINE CELLAR ALERT! {} sensor reads {:.2f} deg C/{:.1f} deg F, {.1f} %RH!'.format(sensorName.title(), data[0], data[1], data[2])
+            self.alertSender.send(alertMessage)
 
     # The callback for when the client receives a CONNACK response from the server.
     @staticmethod
@@ -106,9 +116,9 @@ if __name__=='__main__':
     i2c = onionI2C.OnionI2C()
 
     order = ['top', 'bottom', 'ambient']
-    sensors = {'top': SensorSHT31(device=0, i2c=i2c),
-               'bottom': SensorSHT31(device=1, i2c=i2c),
-               'ambient': SensorSHT25(i2c=i2c)
+    sensors = {'top': SensorSHT31(device=0, i2c=i2c, thresholds=[None, 70., None]),
+               'bottom': SensorSHT31(device=1, i2c=i2c, thresholds=[None, 70., None]),
+               'ambient': SensorSHT25(i2c=i2c, thresholds=[None, 80., None])
               }
 
     publisher = SensorPublisher(sensors)
