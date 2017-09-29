@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import paho.mqtt.client as mqtt
 import ssl
 import json
@@ -18,7 +20,7 @@ class SensorPublisher(object):
         self.client = mqtt.Client()
 
         # userdata contains the last connection status
-        self.user_data_set(None)
+        self.client.user_data_set(None)
 
         self.client.on_connect = self.on_connect
         self.client.on_publish = self.on_publish
@@ -55,9 +57,9 @@ class SensorPublisher(object):
 
         self.client.loop_stop()
 
-    def buildPayload(temp, humidity):
+    def buildPayload(self, temp, humidity):
         data = {'timestamp': time.time(),
-                'temperature': cTemp,
+                'temperature': temp,
                 'humidity': humidity
                }
         jsonString = json.dumps(data)
