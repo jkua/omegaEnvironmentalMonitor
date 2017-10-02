@@ -71,7 +71,7 @@ class SensorPublisher(object):
                         print('Sent stats message!')
                     except:
                         print('*** Failed to send stats message!')
-                sys.stdout.flush()
+                #sys.stdout.flush()
                 measurementTime = time.time() - startTime
                 time.sleep(max(pollInterval-measurementTime, 0))
             except KeyboardInterrupt:

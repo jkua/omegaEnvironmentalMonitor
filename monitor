@@ -5,6 +5,5 @@ python monitor.py \
     --cert /root/certs/certificate.pem \
     --key /root/certs/private.key \
     --config /root/omegaEnvironmentalMonitor/twilio.cfg \
-    --statsHour 21 \
-    2>/root/error.log
+    --statsHour 21 
 
