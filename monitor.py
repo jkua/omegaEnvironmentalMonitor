@@ -41,6 +41,8 @@ class SensorPublisher(object):
     def start(self, pollInterval):
         self.client.loop_start()
 
+        logging.info('*** New session started! ***')
+
         while 1:
             try:
                 startTime = time.time()
@@ -75,6 +77,7 @@ class SensorPublisher(object):
                 measurementTime = time.time() - startTime
                 time.sleep(max(pollInterval-measurementTime, 0))
             except KeyboardInterrupt:
+                logging.info('*** Session ended by SIGHUP ***')
                 break
 
         self.client.loop_stop()
@@ -100,7 +103,7 @@ class SensorPublisher(object):
     def on_connect(client, userdata, flags, rc):
         # userdata contains the last connection status
         if rc != userdata:
-            print("\n*** Connected with result code "+str(rc) + '\n')
+            logging.info("\n*** Connected with result code "+str(rc) + '\n')
             client.user_data_set(rc)
 
         # Subscribing in on_connect() means that if we lose the connection and
@@ -110,12 +113,12 @@ class SensorPublisher(object):
     # The callback for when this client publishes to the server.
     @staticmethod
     def on_publish(client, userdata, mid):
-        print("Message published")
+        logging.info("Message published")
 
     # The callback for when a PUBLISH message is received from the server.
     @staticmethod
     def on_message(client, userdata, msg):
-        print(msg.topic+" "+str(msg.payload))
+        logging.info(msg.topic+" "+str(msg.payload))
 
 
 if __name__=='__main__':
