@@ -7,7 +7,7 @@ import time
 import sys
 from OmegaExpansion import onionI2C
 from readTemp import SensorSHT31, SensorSHT25
-
+import logging
 
 class SensorPublisher(object):
     def __init__(self, sensors, order=None, alertSender=None, statsHour=None):
@@ -44,20 +44,20 @@ class SensorPublisher(object):
         while 1:
             try:
                 startTime = time.time()
-                print('----')
+                logging.info('----')
                 for key in self.order:
                     try:
                         sensor = self.sensors[key]
                         timestamp, (cTemp, fTemp, humidity) = sensor.read()
-                        print('[{}] {} - {:5.2f} deg C, {:5.1f} deg F, {:4.1f} %RH'.format(time.ctime(timestamp), key.title(), cTemp, fTemp, humidity))
+                        logging.info('[{}] {} - {:5.2f} deg C, {:5.1f} deg F, {:4.1f} %RH'.format(time.ctime(timestamp), key.title(), cTemp, fTemp, humidity))
                         if not sensor.checkThresholds():
-                            print('*** OVER THRESHOLD!!! ***')
+                            logging.warning('*** OVER THRESHOLD!!! ***')
                             self.sendAlert(key, timestamp, (cTemp, fTemp, humidity))
                         payload = self.buildPayload(cTemp, humidity)
                         fullTopic = '{}/{}'.format(args.topic, key)
                         result, mid = self.client.publish(fullTopic, payload, qos=1)
                     except IOError:
-                        print('\n*** Failed to get data for {}, device {}!')
+                        logging.warning('\n*** Failed to get data for {}, device {}!')
                 if (time.localtime().tm_hour == self.statsHour) and (self.lastStatsTime is None or ((time.time() - self.lastStatsTime) > 80000)):
                     statsStrings = []
                     try:
@@ -68,9 +68,9 @@ class SensorPublisher(object):
                         statsMessage = '\n'.join(statsStrings)
                         self.sendMessage(statsMessage)
                         self.lastStatsTime = time.time()
-                        print('Sent stats message!')
+                        logging.info('Sent stats message!')
                     except:
-                        print('*** Failed to send stats message!')
+                        logging.warning('*** Failed to send stats message!')
                 #sys.stdout.flush()
                 measurementTime = time.time() - startTime
                 time.sleep(max(pollInterval-measurementTime, 0))
@@ -132,11 +132,21 @@ if __name__=='__main__':
     parser.add_argument('--key', default='~/certs/private.key')
     parser.add_argument('--config', default='twilio.cfg', help='Twilio config file')
     parser.add_argument('--statsHour', type=int, default=21, help='When to send daily stats')
+    parser.add_argument('--logfile', default='~/tempMonitor.log', help='File to append log data')
     args = parser.parse_args()
 
     args.cafile = os.path.expanduser(args.cafile)    
     args.cert = os.path.expanduser(args.cert)    
     args.key = os.path.expanduser(args.key)
+    args.logfile = os.path.expanduser(args.logfile)
+
+    # Setup logging to file and console
+    logging.basicConfig(filename=args.logfile, level=logging.INFO, format='%(asctime)s %(levelname)-8s %(message)s')
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
+    console.setFormatter(formatter)
+    logging.getLogger('').addHandler(console)
 
     i2c = onionI2C.OnionI2C()
 
