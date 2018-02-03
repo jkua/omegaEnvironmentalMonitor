@@ -1,9 +1,11 @@
 #!/bin/sh
 cd /root/omegaEnvironmentalMonitor
 python monitor.py \
+    --poll 60 \
     --cafile /root/certs/rootCA.pem \
     --cert /root/certs/certificate.pem \
     --key /root/certs/private.key \
     --config /root/omegaEnvironmentalMonitor/twilio.cfg \
-    --statsHour 21 
+    --statsHour 21 \
+    --logFile /root/tempMonitor.log
 

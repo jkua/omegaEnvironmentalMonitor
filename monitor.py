@@ -103,22 +103,22 @@ class SensorPublisher(object):
     def on_connect(client, userdata, flags, rc):
         # userdata contains the last connection status
         if rc != userdata:
-            logging.info("\n*** Connected with result code "+str(rc) + '\n')
+            logging.info("MQTT: Connected with result code "+str(rc) + '\n')
             client.user_data_set(rc)
 
         # Subscribing in on_connect() means that if we lose the connection and
         # reconnect then subscriptions will be renewed.
-        client.subscribe("$SYS/#")
+        #client.subscribe("$SYS/#")
 
     # The callback for when this client publishes to the server.
     @staticmethod
     def on_publish(client, userdata, mid):
-        logging.info("Message published")
+        logging.info("MQTT: Message published")
 
     # The callback for when a PUBLISH message is received from the server.
     @staticmethod
     def on_message(client, userdata, msg):
-        logging.info(msg.topic+" "+str(msg.payload))
+        logging.info("MQTT: "+msg.topic+" "+str(msg.payload))
 
 
 if __name__=='__main__':
@@ -135,16 +135,16 @@ if __name__=='__main__':
     parser.add_argument('--key', default='~/certs/private.key')
     parser.add_argument('--config', default='twilio.cfg', help='Twilio config file')
     parser.add_argument('--statsHour', type=int, default=21, help='When to send daily stats')
-    parser.add_argument('--logfile', default='~/tempMonitor.log', help='File to append log data')
+    parser.add_argument('--logFile', default='~/tempMonitor.log', help='File to append log data')
     args = parser.parse_args()
 
     args.cafile = os.path.expanduser(args.cafile)    
     args.cert = os.path.expanduser(args.cert)    
     args.key = os.path.expanduser(args.key)
-    args.logfile = os.path.expanduser(args.logfile)
+    args.logFile = os.path.expanduser(args.logFile)
 
     # Setup logging to file and console
-    logging.basicConfig(filename=args.logfile, level=logging.INFO, format='%(asctime)s %(levelname)-8s %(message)s')
+    logging.basicConfig(filename=args.logFile, level=logging.INFO, format='%(asctime)s %(levelname)-8s %(message)s')
     console = logging.StreamHandler()
     console.setLevel(logging.INFO)
     formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
