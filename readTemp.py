@@ -18,7 +18,8 @@ class Sensor(object):
 
     def stats(self):
         if len(self.buffer) == 0:
-            return None, None, None
+            return None, None, None, 0
+
         total = [0] * len(self.buffer[0][1])
         minVals = [None] * len(self.buffer[0][1])
         maxVals = [None] * len(self.buffer[0][1])
@@ -33,8 +34,9 @@ class Sensor(object):
 
         for i, value in enumerate(total):
             meanVals[i] = value / float(len(self.buffer))
+        numSamples = len(self.buffer)
 
-        return meanVals, minVals, maxVals
+        return meanVals, minVals, maxVals, numSamples
 
     def bufferSize(self):
         return len(self.buffer)
