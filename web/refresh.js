@@ -1,5 +1,21 @@
 AWS.config.region = 'us-west-2'; // Region
-AWS.config.credentials = new AWS.Credentials('AKIAIAKBXHHYB7T3S7YQ', 'qvhoW6pXWy2qeCi2S+kZhlxFc7zAyhbY0Tv1ePqQ');
+AWSCognito.config.region = 'us-west-2';
+     
+var poolData = {
+    UserPoolId : 'us-west-2_rg9HX38jD',
+    ClientId : '6n3ua26911atsluvne0ifja3ns'
+};
+var userPool = new AWSCognito.CognitoIdentityServiceProvider.CognitoUserPool(poolData);
+AWS.config.credentials = new AWS.CognitoIdentityCredentials({
+    IdentityPoolId: 'us-west-2:621ae3f6-3169-4ebd-8431-00bfd332fb03'
+});
+ 
+AWS.config.credentials.get(function(err){
+    if (err) {
+        alert(err);
+    }
+});
+
 var dynamodb = new AWS.DynamoDB();
 var datumVal = new Date() - 86400000;
 var params = { 
@@ -10,7 +26,7 @@ var params = {
                     "#ts": "timestamp"
                 },
                 ExpressionAttributeValues: {
-                    ":iottopic": { "S" : "temp-humidity/Omega-F4E1/top"},
+                    ":iottopic": { "S" : "temp-humidity/Omega-F4E1/bottom"},
                     ":datum": { "N" : datumVal.toString()}
                 }
              };
