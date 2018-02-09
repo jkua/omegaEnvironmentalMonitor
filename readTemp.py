@@ -27,9 +27,9 @@ class Sensor(object):
         for timestamp, data in self.buffer:
             for i, value in enumerate(data):
                 total[i] = total[i] + value
-                if (minVals[i] is None) or (value < minVals):
+                if (minVals[i] is None) or (value < minVals[i]):
                     minVals[i] = value
-                if (maxVals[i] is None) or (value > maxVals):
+                if (maxVals[i] is None) or (value > maxVals[i]):
                     maxVals[i] = value
 
         for i, value in enumerate(total):
