@@ -1,10 +1,12 @@
 from OmegaExpansion import onionI2C
 import time
+import math
 import collections
 
 class Sensor(object):
     def __init__(self, bufferTimeWindow=86400, thresholds=None, thresholdSamples=3):
         self.bufferTimeWindow = bufferTimeWindow
+        # Buffer contains (timestamp, data) tuples, where data is a tuple of values
         self.buffer = collections.deque()
         self.thresholds = thresholds
         self.thresholdSamples = thresholdSamples
@@ -17,13 +19,19 @@ class Sensor(object):
         return timestamp, data
 
     def stats(self):
+        '''Compute stats for each of the buffers'''
         if len(self.buffer) == 0:
-            return None, None, None, 0
+            return None, None, None, None, 0
 
-        total = [0] * len(self.buffer[0][1])
-        minVals = [None] * len(self.buffer[0][1])
-        maxVals = [None] * len(self.buffer[0][1])
-        meanVals = [None] * len(self.buffer[0][1])
+        numDataStreams = len(self.buffer[0][1])
+        numSamples = len(self.buffer)
+
+        total = [0] * len(numDataStreams)
+        minVals = [None] * len(numDataStreams)
+        maxVals = [None] * len(numDataStreams)
+        meanVals = [None] * len(numDataStreams)
+        ssdVals = [0] * len(numDataStreams)
+        stdVals = [None] * len(numDataStreams)
         for timestamp, data in self.buffer:
             for i, value in enumerate(data):
                 total[i] = total[i] + value
@@ -33,10 +41,15 @@ class Sensor(object):
                     maxVals[i] = value
 
         for i, value in enumerate(total):
-            meanVals[i] = value / float(len(self.buffer))
-        numSamples = len(self.buffer)
+            meanVals[i] = value / float(numSamples)
 
-        return meanVals, minVals, maxVals, numSamples
+        for timestamp, data in self.buffer:
+            for i, value in enumerate(data):
+                ssdVals[i] = ssdVals[i] + (value - meanVals[i]) ** 2 
+
+        stdVals = [sqrt(ssdVal/numSamples) for ssdVal in ssdVals]
+
+        return meanVals, stdVals, minVals, maxVals, numSamplesa
 
     def bufferSize(self):
         return len(self.buffer)
