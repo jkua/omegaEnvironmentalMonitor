@@ -26,12 +26,12 @@ class Sensor(object):
         numDataStreams = len(self.buffer[0][1])
         numSamples = len(self.buffer)
 
-        total = [0] * len(numDataStreams)
-        minVals = [None] * len(numDataStreams)
-        maxVals = [None] * len(numDataStreams)
-        meanVals = [None] * len(numDataStreams)
-        ssdVals = [0] * len(numDataStreams)
-        stdVals = [None] * len(numDataStreams)
+        total = [0] * numDataStreams
+        minVals = [None] * numDataStreams
+        maxVals = [None] * numDataStreams
+        meanVals = [None] * numDataStreams
+        ssdVals = [0] * numDataStreams
+        stdVals = [None] * numDataStreams
         for timestamp, data in self.buffer:
             for i, value in enumerate(data):
                 total[i] = total[i] + value
