@@ -8,6 +8,7 @@ import sys
 from OmegaExpansion import onionI2C
 from readTemp import SensorSHT31, SensorSHT25
 import logging
+import traceback
 
 class SensorPublisher(object):
     def __init__(self, sensors, order=None, alertSender=None, statsHour=None):
@@ -66,13 +67,15 @@ class SensorPublisher(object):
                         for key in self.order:
                             sensor = self.sensors[key]
                             meanVals, stdVals, minVals, maxVals, numSamples = sensor.stats()
-                            statsStrings.append('{} ({} samples) - Mean: {:.1f} deg F, Std: {:.1}, Min: {:.1f}, Max: {:.1f}'.format(key.title(), numSamples, meanVals[1], stdVals[1], minVals[1], maxVals[1]))
-                        statsMessage = '\n'.join(statsStrings)
+                            statsStrings.append('{} ({} samples) - Mean: {:.1f} deg F, Std: {:.1f}, Min: {:.1f}, Max: {:.1f}'.format(key.title(), numSamples, meanVals[1], stdVals[1], minVals[1], maxVals[1]))
+                        statsMessage = 'Wine Cellar Temps\n' + '\n'.join(statsStrings)
                         self.sendMessage(statsMessage)
                         self.lastStatsTime = time.time()
                         logging.info('Sent stats message!')
                     except:
                         logging.warning('*** Failed to send stats message!')
+                        for line in traceback.format_exc().splitlines():
+                            logging.warning(line)
                 #sys.stdout.flush()
                 measurementTime = time.time() - startTime
                 time.sleep(max(pollInterval-measurementTime, 0))
@@ -153,7 +156,7 @@ if __name__=='__main__':
 
     i2c = onionI2C.OnionI2C()
 
-    order = ['top', 'bottom', 'ambient']
+    order = ['ambient', 'top', 'bottom']
     sensors = {'top': SensorSHT31(device=0, i2c=i2c, thresholds=[None, 70., None]),
                'bottom': SensorSHT31(device=1, i2c=i2c, thresholds=[None, 70., None]),
                'ambient': SensorSHT25(i2c=i2c, thresholds=[None, 80., None])
@@ -161,7 +164,7 @@ if __name__=='__main__':
 
     sender = TwilioSender(args.config)
 
-    publisher = SensorPublisher(sensors, alertSender=sender, statsHour=args.statsHour)
+    publisher = SensorPublisher(sensors, order=order, alertSender=sender, statsHour=args.statsHour)
     publisher.connect(args.host, args.port, args.cafile, args.cert, args.key)
     publisher.start(args.poll)
     publisher.disconnect()

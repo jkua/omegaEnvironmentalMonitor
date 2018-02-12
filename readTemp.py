@@ -47,9 +47,9 @@ class Sensor(object):
             for i, value in enumerate(data):
                 ssdVals[i] = ssdVals[i] + (value - meanVals[i]) ** 2 
 
-        stdVals = [sqrt(ssdVal/numSamples) for ssdVal in ssdVals]
+        stdVals = [math.sqrt(ssdVal/numSamples) for ssdVal in ssdVals]
 
-        return meanVals, stdVals, minVals, maxVals, numSamplesa
+        return meanVals, stdVals, minVals, maxVals, numSamples
 
     def bufferSize(self):
         return len(self.buffer)
