@@ -67,7 +67,7 @@ class SensorPublisher(object):
                         for key in self.order:
                             sensor = self.sensors[key]
                             meanVals, stdVals, minVals, maxVals, numSamples = sensor.stats()
-                            statsStrings.append('{} ({} samples) - Mean: {:.1f} deg F, Std: {:.1f}, Min: {:.1f}, Max: {:.1f}'.format(key.title(), numSamples, meanVals[1], stdVals[1], minVals[1], maxVals[1]))
+                            statsStrings.append('{} ({} samples) - Mean: {:.1f} deg F, Std: {:.2f}, Min: {:.1f}, Max: {:.1f}'.format(key.title(), numSamples, meanVals[1], stdVals[1], minVals[1], maxVals[1]))
                         statsMessage = 'Wine Cellar Temps\n' + '\n'.join(statsStrings)
                         self.sendMessage(statsMessage)
                         self.lastStatsTime = time.time()
